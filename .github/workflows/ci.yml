@@ -1,0 +1,106 @@
+name: 🧪 CI Pipeline - UnitWise Security Build & Test
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: 🔧 Backend Tests (Firebase + Cloud Functions)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install backend dependencies
+        run: |
+          cd backend/functions
+          npm ci
+
+      - name: Run backend tests
+        run: |
+          cd backend/functions
+          npm test
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TWILIO_API_KEY: ${{ secrets.TWILIO_API_KEY }}
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+
+  frontend-tests:
+    name: 💻 Flutter Frontend Tests
+    runs-on: ubuntu-latest
+    needs: backend-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.19.0"
+
+      - name: Install Flutter dependencies
+        run: |
+          cd frontend
+          flutter pub get
+
+      - name: Run widget & unit tests
+        run: |
+          cd frontend
+          flutter test
+
+  security-scan:
+    name: 🕵️ Security Audit
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run dependency vulnerability check
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: |
+          cd backend/functions
+          npm audit --production || true
+
+      - name: Flutter dependency check
+        run: |
+          cd frontend
+          flutter pub outdated || true
+
+  claude-commit-verification:
+    name: 🤖 Verify Claude Commit Source
+    runs-on: ubuntu-latest
+    needs: [security-scan]
+
+    steps:
+      - name: Verify commit author
+        run: |
+          echo "Verifying Claude commit identity..."
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
+          if [[ "$AUTHOR_EMAIL" != *"claude@"* && "$AUTHOR_EMAIL" != *"powerviewlabs.com"* ]]; then
+            echo "❌ Unauthorized commit source: $AUTHOR_EMAIL"
+            exit 1
+          else
+            echo "✅ Commit verified from authorized AI/organization account."
+          fi
