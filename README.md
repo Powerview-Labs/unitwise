@@ -36,8 +36,6 @@ unitwise/
 └── docs/
 └── module1_onboarding_README.md
 
-yaml
-Copy code
 
 ---
 
