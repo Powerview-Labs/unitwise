@@ -1,0 +1,58 @@
+# ============================================
+# UNITWISE BACKEND - GIT IGNORE
+# ============================================
+
+# Environment Variables (CRITICAL - Contains API Keys!)
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# Node Modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Firebase
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+pubsub-debug.log
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Firebase Cache
+.firebase/
+.firebaserc.local
+
+# Build artifacts
+dist/
+build/
+lib/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Service Account Keys (CRITICAL!)
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+credentials.json

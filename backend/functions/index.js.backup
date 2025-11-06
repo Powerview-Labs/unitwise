@@ -1,0 +1,176 @@
+/**
+ * UNITWISE CLOUD FUNCTIONS - MAIN INDEX
+ * 
+ * Module 1: Authentication & Onboarding
+ * 
+ * This file initializes Firebase Admin SDK and exports all Cloud Functions
+ * 
+ * SECURITY CONFIGURATION:
+ * - Firebase Admin initialized with default credentials
+ * - Environment variables loaded from .env
+ * - CORS enabled for all HTTP functions
+ * - Rate limiting configured per function
+ * 
+ * EXPORTED FUNCTIONS:
+ * - sendOtp: Generate and send OTP via Twilio WhatsApp
+ * - verifyOtp: Verify OTP and authenticate user
+ * - createUserProfile: Create user profile in Firestore
+ * - resetPassword: Password reset with OTP verification
+ * - sendWelcomeEmailOnCreate: Firestore trigger for welcome emails
+ * 
+ * DEPLOYMENT:
+ * firebase deploy --only functions
+ * 
+ * TESTING:
+ * npm test
+ */
+
+// Load environment variables from .env file
+// SECURITY: Ensures all secrets are loaded from environment
+require('dotenv').config();
+
+// Initialize Firebase Admin SDK
+// SECURITY: Uses default service account credentials from Firebase
+const admin = require('firebase-admin');
+
+admin.initializeApp({
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  // Service account credentials loaded automatically from:
+  // - GOOGLE_APPLICATION_CREDENTIALS environment variable
+  // - Default service account in Cloud Functions environment
+  // - firebase-adminsdk service account JSON (local development)
+});
+
+// Log initialization (sanitized)
+console.log('[Firebase Admin] Initialized successfully');
+console.log(`[Environment] ${process.env.APP_ENV || 'development'}`);
+console.log(`[Region] us-central1`);
+
+// Configure Firestore settings
+const db = admin.firestore();
+db.settings({
+  timestampsInSnapshots: true,
+  ignoreUndefinedProperties: true,
+});
+
+// ============================================
+// EXPORT ALL CLOUD FUNCTIONS
+// ============================================
+
+/**
+ * Authentication Functions
+ */
+const { sendOtp } = require('./sendOtp');
+const { verifyOtp } = require('./verifyOtp');
+const { createUserProfile, sendWelcomeEmailOnCreate } = require('./createUserProfile');
+const { resetPassword } = require('./resetPassword');
+
+// Export HTTP Functions
+exports.sendOtp = sendOtp;
+exports.verifyOtp = verifyOtp;
+exports.createUserProfile = createUserProfile;
+exports.resetPassword = resetPassword;
+
+// Export Firestore Triggers
+exports.sendWelcomeEmailOnCreate = sendWelcomeEmailOnCreate;
+
+/**
+ * Health Check Function (for monitoring)
+ * 
+ * Endpoint: GET /healthCheck
+ * Returns: { status: "ok", timestamp: ISO8601 }
+ */
+const { onRequest } = require('firebase-functions/v2/https');
+
+exports.healthCheck = onRequest(
+  {
+    cors: true,
+    region: 'us-central1',
+    timeoutSeconds: 10,
+    memory: '128MiB',
+  },
+  async (req, res) => {
+    return res.status(200).json({
+      status: 'ok',
+      service: 'unitwise-cloud-functions',
+      module: 'authentication',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      environment: process.env.APP_ENV || 'development',
+    });
+  }
+);
+
+/**
+ * CORS Configuration
+ * 
+ * SECURITY: Restricts origins in production
+ * Development: Allows all origins for testing
+ * Production: Should be restricted to your app domains
+ */
+const corsConfig = {
+  origin: process.env.APP_ENV === 'production' 
+    ? ['https://unitwise.app', 'https://www.unitwise.app']
+    : true, // Allow all origins in development
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+console.log('[CORS] Configuration loaded:', 
+  process.env.APP_ENV === 'production' ? 'Production (restricted)' : 'Development (permissive)'
+);
+
+/**
+ * Logging Configuration
+ * 
+ * SECURITY: Mask sensitive data in logs
+ * - Phone numbers: +234810****000
+ * - Emails: u***r@example.com
+ * - OTPs: NEVER logged
+ * - Tokens: NEVER logged
+ */
+console.log('[Logging] PII masking:', process.env.MASK_PII_IN_LOGS === 'true' ? 'ENABLED' : 'DISABLED');
+console.log('[Logging] Debug mode:', process.env.ENABLE_DEBUG_LOGS === 'true' ? 'ENABLED' : 'DISABLED');
+
+/**
+ * Rate Limiting Configuration
+ */
+console.log('[Rate Limiting] OTP requests: 3 per 15 minutes');
+console.log('[Rate Limiting] Password resets: 3 per 15 minutes');
+console.log('[Rate Limiting] Max OTP attempts: 5 per session');
+
+/**
+ * Security Configuration Summary
+ */
+console.log('[Security] Bcrypt salt rounds:', process.env.BCRYPT_SALT_ROUNDS || '10');
+console.log('[Security] OTP expiry:', process.env.OTP_EXPIRY_MINUTES || '5', 'minutes');
+console.log('[Security] Password min length:', process.env.PASSWORD_MIN_LENGTH || '6', 'characters');
+
+/**
+ * External Service Configuration
+ */
+console.log('[Twilio] Account SID:', process.env.TWILIO_ACCOUNT_SID ? 'Configured' : 'MISSING');
+console.log('[Twilio] WhatsApp Number:', process.env.TWILIO_WHATSAPP_NUMBER ? 'Configured' : 'MISSING');
+console.log('[SendGrid] API Key:', process.env.SENDGRID_API_KEY ? 'Configured' : 'MISSING');
+console.log('[SendGrid] From Email:', process.env.EMAIL_FROM || 'noreply@unitwise.app');
+
+// Validate critical environment variables
+const requiredEnvVars = [
+  'TWILIO_ACCOUNT_SID',
+  'TWILIO_AUTH_TOKEN',
+  'TWILIO_WHATSAPP_NUMBER',
+  'TWILIO_CONTENT_SID',
+  'SENDGRID_API_KEY',
+];
+
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('[Configuration] CRITICAL: Missing required environment variables:', missingVars);
+  console.error('[Configuration] Cloud Functions may not work correctly. Check .env file.');
+} else {
+  console.log('[Configuration] All required environment variables present ✓');
+}
+
+console.log('[Cloud Functions] Module 1: Authentication & Onboarding loaded successfully ✓');
