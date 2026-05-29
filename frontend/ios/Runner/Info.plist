@@ -72,5 +72,9 @@
 <string>Used to scan QR codes and meter readings</string>
 <key>NSPhotoLibraryUsageDescription</key>
 <string>Used to upload meter photos</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>UnitWise needs your location to determine your electricity distribution zone and provide accurate tariff information.</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>UnitWise needs your location to determine your electricity distribution zone and provide accurate tariff information.</string>
 </dict>
 </plist>
