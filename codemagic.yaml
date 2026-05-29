@@ -20,13 +20,14 @@ workflows:
         script: |
           cd frontend/ios
           pod install
-      - name: Set up code signing settings on Xcode project
+      - name: Set up code signing
         script: |
           xcode-project use-profiles --project frontend/ios/Runner.xcodeproj
       - name: Build iOS IPA
         script: |
           cd frontend
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - frontend/build/ios/ipa/*.ipa
     publishing:
