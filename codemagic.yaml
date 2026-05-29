@@ -10,6 +10,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.powerviewlabs.unitwise
       flutter: stable
+      xcode: latest
     scripts:
       - name: Get Flutter packages
         script: |
@@ -19,10 +20,13 @@ workflows:
         script: |
           cd frontend/ios
           pod install
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles --project frontend/ios/Runner.xcodeproj
       - name: Build iOS IPA
         script: |
           cd frontend
-          flutter build ipa --release
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - frontend/build/ios/ipa/*.ipa
     publishing:
