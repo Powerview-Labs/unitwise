@@ -15,10 +15,14 @@ workflows:
         script: |
           cd frontend
           flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd frontend/ios
+          pod install
       - name: Build iOS IPA
         script: |
           cd frontend
-          flutter build ipa --release
+          flutter build ipa --release --no-codesign
     artifacts:
       - frontend/build/ios/ipa/*.ipa
     publishing:
