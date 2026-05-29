@@ -9,8 +9,6 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.powerviewlabs.unitwise
-        provisioning_profile: UnitWise App Store
-        certificate: Powerview Labs Distribution
       flutter: stable
     scripts:
       - name: Get Flutter packages
