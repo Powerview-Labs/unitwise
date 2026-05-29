@@ -22,7 +22,7 @@ workflows:
       - name: Build iOS IPA
         script: |
           cd frontend
-          flutter build ipa --release --no-codesign
+          flutter build ipa --release
     artifacts:
       - frontend/build/ios/ipa/*.ipa
     publishing:
