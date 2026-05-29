@@ -16,7 +16,6 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "shared_preferences_foundation", path: "../.packages/shared_preferences_foundation-2.5.6"),
-        .package(name: "geolocator_apple", path: "../.packages/geolocator_apple-2.3.13"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
     targets: [
@@ -24,7 +23,6 @@ let package = Package(
             name: "FlutterGeneratedPluginSwiftPackage",
             dependencies: [
                 .product(name: "shared-preferences-foundation", package: "shared_preferences_foundation"),
-                .product(name: "geolocator-apple", package: "geolocator_apple"),
                 .product(name: "FlutterFramework", package: "FlutterFramework")
             ]
         )
