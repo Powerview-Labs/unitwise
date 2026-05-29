@@ -1,0 +1,226 @@
+/**
+ * Appliance Row Widget
+ * 
+ * Displays individual appliance as a card with:
+ * - Name and icon
+ * - Wattage, hours, quantity
+ * - Daily units consumption
+ * - Consumption level indicator
+ * 
+ * UX: 48dp touch target, visual hierarchy, accessibility
+ */
+
+import 'package:flutter/material.dart';
+import '../../../models/appliance_model.dart';
+import '../../../constants/estimator/estimator_constants.dart';
+import '../../../utils/estimator/estimator_extensions.dart';
+
+class ApplianceRowWidget extends StatelessWidget {
+  final Appliance appliance;
+  final VoidCallback onTap;
+
+  const ApplianceRowWidget({
+    super.key,
+    required this.appliance,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: Colors.grey.shade200,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row: Icon, name, consumption badge
+              Row(
+                children: [
+                  // Icon
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: EstimatorConstants.primaryBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      appliance.categoryIcon,
+                      size: 24,
+                      color: EstimatorConstants.primaryBlue,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          appliance.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (appliance.quantity > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              appliance.quantity.toQuantityString(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Consumption badge
+                  _buildConsumptionBadge(),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Details row: Wattage and Hours
+              Row(
+                children: [
+                  _buildDetailChip(
+                    Icons.bolt_outlined,
+                    appliance.wattage.toWattageString(),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildDetailChip(
+                    Icons.access_time_outlined,
+                    appliance.hoursPerDay.toHoursString(),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Daily consumption bar
+              _buildConsumptionBar(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build consumption level badge
+  Widget _buildConsumptionBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: appliance.consumptionColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: appliance.consumptionColor.withOpacity(0.3),
+        ),
+      ),
+      child: Text(
+        appliance.dailyUnits.toUnitsString(),
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: appliance.consumptionColor,
+        ),
+      ),
+    );
+  }
+
+  /// Build detail chip (wattage/hours)
+  Widget _buildDetailChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: Colors.grey[700],
+          ),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build consumption progress bar
+  Widget _buildConsumptionBar() {
+    // Calculate percentage (max 10 units for visual purposes)
+    final percentage = (appliance.dailyUnits / 10).clamp(0.0, 1.0);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Daily Consumption',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+            Text(
+              appliance.consumptionLevel.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: appliance.consumptionColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: percentage,
+            backgroundColor: Colors.grey.shade200,
+            valueColor: AlwaysStoppedAnimation(appliance.consumptionColor),
+            minHeight: 6,
+          ),
+        ),
+      ],
+    );
+  }
+}

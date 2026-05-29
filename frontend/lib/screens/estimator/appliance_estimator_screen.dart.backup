@@ -1,0 +1,442 @@
+/**
+ * Appliance Estimator Screen
+ * 
+ * Main screen for the Appliance Estimator module.
+ * Displays list of appliances, daily burn estimate, and power saver tips.
+ * 
+ * Architecture: Provider pattern with ApplianceEstimatorController
+ * Security: Input validation, error handling
+ * UX: Auto-save, loading states, error recovery
+ */
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../controllers/estimator/appliance_estimator_controller.dart';
+import '../../constants/estimator/estimator_constants.dart';
+import '../../constants/estimator/estimator_strings.dart';
+import '../../utils/estimator/estimator_extensions.dart';
+import '../../widgets/loading_overlay.dart';
+import 'widgets/appliance_list_widget.dart';
+import 'widgets/daily_burn_display.dart';
+import 'widgets/add_edit_appliance_dialog.dart';
+
+class ApplianceEstimatorScreen extends StatefulWidget {
+  const ApplianceEstimatorScreen({super.key});
+
+  @override
+  State<ApplianceEstimatorScreen> createState() => _ApplianceEstimatorScreenState();
+}
+
+class _ApplianceEstimatorScreenState extends State<ApplianceEstimatorScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize controller when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ApplianceEstimatorController>().initialize();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      appBar: _buildAppBar(context),
+      body: Consumer<ApplianceEstimatorController>(
+        builder: (context, controller, child) {
+          return LoadingOverlay(
+            isLoading: controller.isLoading,
+            message: EstimatorStrings.loadingMessage,
+            child: _buildBody(context, controller),
+          );
+        },
+      ),
+      floatingActionButton: _buildFloatingActionButton(context),
+    );
+  }
+
+  /// Build app bar with actions
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: const Text(
+        EstimatorStrings.screenTitle,
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+        ),
+      ),
+      backgroundColor: EstimatorConstants.primaryBlue,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      automaticallyImplyLeading: false, // Remove back button during onboarding
+      actions: [
+        // Skip button (for onboarding flow)
+        TextButton(
+          onPressed: () {
+            // Skip appliance setup and go to dashboard
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          },
+          child: const Text(
+            EstimatorStrings.buttonSkip,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        // Load defaults button
+        Consumer<ApplianceEstimatorController>(
+          builder: (context, controller, child) {
+            return IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: EstimatorStrings.loadDefaultsTooltip,
+              onPressed: controller.isEmpty
+                  ? () => _loadDefaults(context, controller)
+                  : null,
+            );
+          },
+        ),
+        // More options menu
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) => _handleMenuAction(context, value),
+          itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'clear',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, size: 20),
+                  SizedBox(width: 12),
+                  Text(EstimatorStrings.clearAllButton),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'help',
+              child: Row(
+                children: [
+                  Icon(Icons.help_outline, size: 20),
+                  SizedBox(width: 12),
+                  Text(EstimatorStrings.helpButton),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// Build main body content
+  Widget _buildBody(BuildContext context, ApplianceEstimatorController controller) {
+    return Column(
+      children: [
+        // Daily burn summary at top
+        const DailyBurnDisplay(),
+
+        // Error message if present
+        if (controller.hasError)
+          _buildErrorBanner(context, controller),
+
+        // Appliance list
+        Expanded(
+          child: controller.isEmpty
+              ? _buildEmptyState(context, controller)
+              : const ApplianceListWidget(),
+        ),
+
+        // Save button at bottom
+        if (controller.hasUnsavedChanges)
+          _buildSaveButton(context, controller),
+      ],
+    );
+  }
+
+  /// Build error banner
+  Widget _buildErrorBanner(BuildContext context, ApplianceEstimatorController controller) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: EstimatorConstants.warningRed.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: EstimatorConstants.warningRed.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline,
+            color: EstimatorConstants.warningRed,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              controller.error!,
+              style: TextStyle(
+                color: EstimatorConstants.warningRed,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            color: EstimatorConstants.warningRed,
+            onPressed: controller.clearError,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build empty state
+  Widget _buildEmptyState(BuildContext context, ApplianceEstimatorController controller) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.devices_other_outlined,
+              size: 80,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              EstimatorStrings.emptyStateTitle,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              EstimatorStrings.emptyStateMessage,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () => _loadDefaults(context, controller),
+              icon: const Icon(Icons.add),
+              label: const Text(EstimatorStrings.loadDefaultsButton),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: EstimatorConstants.primaryBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build save button
+  Widget _buildSaveButton(BuildContext context, ApplianceEstimatorController controller) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: ElevatedButton(
+          onPressed: () => _saveEstimator(context, controller),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: EstimatorConstants.primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            EstimatorStrings.saveButton,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build floating action button
+  Widget _buildFloatingActionButton(BuildContext context) {
+    return Consumer<ApplianceEstimatorController>(
+      builder: (context, controller, child) {
+        // Only show FAB if not at max capacity
+        if (!controller.canAddAppliance) {
+          return const SizedBox.shrink();
+        }
+
+        return FloatingActionButton(
+          onPressed: () => _showAddApplianceDialog(context),
+          backgroundColor: EstimatorConstants.accentGreen,
+          foregroundColor: Colors.white,
+          tooltip: EstimatorStrings.addApplianceTooltip,
+          child: const Icon(Icons.add),
+        );
+      },
+    );
+  }
+
+  // ============================================================================
+  // ACTIONS
+  // ============================================================================
+
+  /// Show add appliance dialog
+  Future<void> _showAddApplianceDialog(BuildContext context) async {
+    final result = await showDialog(
+      context: context,
+      builder: (context) => const AddEditApplianceDialog(),
+    );
+
+    if (result != null && mounted) {
+      context.showSuccessSnackbar(EstimatorStrings.applianceAddedMessage);
+    }
+  }
+
+  /// Load default appliances
+  Future<void> _loadDefaults(
+    BuildContext context,
+    ApplianceEstimatorController controller,
+  ) async {
+    // Confirm if user already has appliances
+    if (!controller.isEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text(EstimatorStrings.loadDefaultsConfirmTitle),
+          content: const Text(EstimatorStrings.loadDefaultsConfirmMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(EstimatorStrings.cancelButton),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(EstimatorStrings.loadDefaultsButton),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+    }
+
+    await controller.loadDefaults();
+
+    if (mounted && !controller.hasError) {
+      context.showSuccessSnackbar(EstimatorStrings.defaultsLoadedMessage);
+    }
+  }
+
+  /// Save estimator
+  Future<void> _saveEstimator(
+    BuildContext context,
+    ApplianceEstimatorController controller,
+  ) async {
+    final success = await controller.saveEstimator();
+
+    if (!mounted) return;
+
+    if (success) {
+      context.showSuccessSnackbar(EstimatorStrings.saveSuccessMessage);
+      
+      // Navigate to dashboard after successful save
+      // This completes the onboarding flow
+      Navigator.pushReplacementNamed(context, '/dashboard');
+    } else {
+      context.showErrorSnackbar(EstimatorStrings.saveFailedMessage);
+    }
+  }
+
+  /// Handle menu actions
+  void _handleMenuAction(BuildContext context, String action) {
+    final controller = context.read<ApplianceEstimatorController>();
+
+    switch (action) {
+      case 'clear':
+        _clearAll(context, controller);
+        break;
+      case 'help':
+        _showHelp(context);
+        break;
+    }
+  }
+
+  /// Clear all appliances
+  Future<void> _clearAll(
+    BuildContext context,
+    ApplianceEstimatorController controller,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(EstimatorStrings.clearAllConfirmTitle),
+        content: const Text(EstimatorStrings.clearAllConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(EstimatorStrings.cancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: EstimatorConstants.warningRed,
+            ),
+            child: const Text(EstimatorStrings.clearAllButton),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await controller.clearAll();
+      if (mounted) {
+        context.showSuccessSnackbar(EstimatorStrings.clearedMessage);
+      }
+    }
+  }
+
+  /// Show help dialog
+  void _showHelp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(EstimatorStrings.helpTitle),
+        content: const SingleChildScrollView(
+          child: Text(EstimatorStrings.helpMessage),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(EstimatorStrings.closeButton),
+          ),
+        ],
+      ),
+    );
+  }
+}

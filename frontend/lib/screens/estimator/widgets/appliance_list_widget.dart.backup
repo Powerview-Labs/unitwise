@@ -1,0 +1,254 @@
+/**
+ * Appliance List Widget
+ * 
+ * Displays list of all appliances with consumption indicators.
+ * Supports tap to edit, swipe to delete.
+ * 
+ * UX: Smooth animations, visual feedback, accessibility
+ * Security: Validates actions before execution
+ */
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../controllers/estimator/appliance_estimator_controller.dart';
+import '../../../constants/estimator/estimator_constants.dart';
+import '../../../constants/estimator/estimator_strings.dart';
+import '../../../utils/estimator/estimator_extensions.dart';
+import 'appliance_row_widget.dart';
+import 'add_edit_appliance_dialog.dart';
+
+class ApplianceListWidget extends StatelessWidget {
+  const ApplianceListWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ApplianceEstimatorController>(
+      builder: (context, controller, child) {
+        final appliances = controller.appliances;
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          itemCount: appliances.length + 1, // +1 for footer
+          itemBuilder: (context, index) {
+            // Footer with tips
+            if (index == appliances.length) {
+              return _buildFooter(context, controller);
+            }
+
+            final appliance = appliances[index];
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Dismissible(
+                key: Key(appliance.id),
+                direction: DismissDirection.endToStart,
+                background: _buildDismissBackground(),
+                confirmDismiss: (direction) => _confirmDelete(context, appliance.name),
+                onDismissed: (direction) {
+                  controller.deleteAppliance(appliance.id);
+                  context.showSuccessSnackbar(
+                    EstimatorStrings.applianceDeletedMessage,
+                  );
+                },
+                child: ApplianceRowWidget(
+                  appliance: appliance,
+                  onTap: () => _editAppliance(context, appliance),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Build dismiss background (swipe to delete)
+  Widget _buildDismissBackground() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: EstimatorConstants.warningRed,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 20),
+      child: const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.delete_outline,
+            color: Colors.white,
+            size: 28,
+          ),
+          SizedBox(height: 4),
+          Text(
+            EstimatorStrings.deleteLabel,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build footer with tips and summary
+  Widget _buildFooter(BuildContext context, ApplianceEstimatorController controller) {
+    if (controller.tips.isEmpty) {
+      return const SizedBox(height: 80); // Space for FAB
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            EstimatorStrings.powerSaverTipsTitle,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...controller.tips.map((tip) => _buildTipCard(tip)),
+        const SizedBox(height: 80), // Space for FAB
+      ],
+    );
+  }
+
+  /// Build power saver tip card
+  Widget _buildTipCard(tip) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: tip.color.withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: tip.color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              tip.icon,
+              color: tip.color,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tip.applianceName,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  tip.recommendation,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.flash_on,
+                      size: 14,
+                      color: EstimatorConstants.accentGreen,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${tip.unitsSavedPerDay.toDisplayString()} units/day',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: EstimatorConstants.accentGreen,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 14,
+                      color: Colors.grey[600],
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '₦${tip.nairaSavedPerMonth.toStringAsFixed(0)}/mo',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Confirm delete action
+  Future<bool?> _confirmDelete(BuildContext context, String applianceName) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text(EstimatorStrings.deleteConfirmTitle),
+        content: Text(
+          '${EstimatorStrings.deleteConfirmMessage} "$applianceName"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(EstimatorStrings.cancelButton),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: EstimatorConstants.warningRed,
+            ),
+            child: const Text(EstimatorStrings.deleteButton),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Edit appliance
+  Future<void> _editAppliance(BuildContext context, appliance) async {
+    final result = await showDialog(
+      context: context,
+      builder: (context) => AddEditApplianceDialog(
+        appliance: appliance,
+      ),
+    );
+
+    if (result != null && context.mounted) {
+      context.showSuccessSnackbar(EstimatorStrings.applianceUpdatedMessage);
+    }
+  }
+}
