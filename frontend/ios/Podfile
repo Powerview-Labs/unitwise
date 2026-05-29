@@ -39,10 +39,22 @@ post_install do |installer|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      cflags = config.build_settings['OTHER_CFLAGS'] || '$(inherited)'
-      config.build_settings['OTHER_CFLAGS'] = cflags.gsub('-G', '') if cflags.is_a?(String)
-      if cflags.is_a?(Array)
-        config.build_settings['OTHER_CFLAGS'] = cflags.reject { |f| f == '-G' }
+      # Remove unsupported -G flag from gRPC-C++
+      if config.build_settings['OTHER_CFLAGS'].is_a?(Array)
+        config.build_settings['OTHER_CFLAGS'].delete('-G')
+      elsif config.build_settings['OTHER_CFLAGS'].is_a?(String)
+        config.build_settings['OTHER_CFLAGS'] = config.build_settings['OTHER_CFLAGS'].split(' ').reject { |f| f == '-G' }.join(' ')
+      end
+      # Also check GCC_PREPROCESSOR_DEFINITIONS
+      config.build_settings.delete('SWIFT_PACKAGE_MANAGER_ENABLED')
+    end
+  end
+  # Specifically target gRPC pods
+  installer.pods_project.targets.each do |target|
+    if target.name.include?('gRPC') || target.name.include?('grpc') || target.name.include?('BoringSSL')
+      target.build_configurations.each do |config|
+        config.build_settings['OTHER_CFLAGS'] = '$(inherited)'
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = '$(inherited)'
       end
     end
   end
